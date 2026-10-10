@@ -130,6 +130,55 @@ public class UserServiceImpl implements UserService {
         return mapToDTO(saved);
     }
 
+    @Override
+    public UserDTO updateUserRole(Long userId, String roleName) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+
+        Role targetRole;
+        try {
+            String normalized = roleName.toUpperCase();
+            if (!normalized.startsWith("ROLE_")) {
+                normalized = "ROLE_" + normalized;
+            }
+            targetRole = Role.valueOf(normalized);
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Invalid role specified: " + roleName);
+        }
+
+        user.setRole(targetRole);
+        User saved = userRepository.save(user);
+        return mapToDTO(saved);
+    }
+
+    @Override
+    public UserDTO createDeliveryAgent(RegisterRequest request) {
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new BadRequestException("An account with this email already exists: " + request.getEmail());
+        }
+
+        User agent = User.builder()
+                .fullName(request.getFullName())
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .phoneNumber(request.getPhoneNumber())
+                .role(Role.ROLE_DELIVERY_AGENT)
+                .status("ACTIVE")
+                .build();
+
+        User savedAgent = userRepository.save(agent);
+
+        Cart cart = Cart.builder()
+                .user(savedAgent)
+                .subtotal(0.0)
+                .deliveryFee(0.0)
+                .total(0.0)
+                .build();
+        cartRepository.save(cart);
+
+        return mapToDTO(savedAgent);
+    }
+
     private UserDTO mapToDTO(User user) {
         return UserDTO.builder()
                 .id(user.getId())

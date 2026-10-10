@@ -11,4 +11,6 @@ public interface UserService {
     UserDTO updateUserProfile(String email, UserProfileRequest request);
     List<UserDTO> getAllUsers();
     UserDTO toggleUserStatus(Long userId);
+    UserDTO updateUserRole(Long userId, String role);
+    UserDTO createDeliveryAgent(RegisterRequest request);
 }

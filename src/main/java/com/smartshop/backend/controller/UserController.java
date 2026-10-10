@@ -44,4 +44,25 @@ public class UserController {
         UserDTO updated = userService.toggleUserStatus(id);
         return ResponseEntity.ok(ApiResponse.success("User status updated", updated));
     }
+
+    @PutMapping("/{id}/role")
+    public ResponseEntity<ApiResponse<UserDTO>> updateUserRole(
+            @PathVariable Long id,
+            @RequestBody java.util.Map<String, String> request
+    ) {
+        String role = request != null ? request.get("role") : null;
+        if (role == null || role.isBlank()) {
+            throw new com.smartshop.backend.exception.BadRequestException("Role is required");
+        }
+        UserDTO updated = userService.updateUserRole(id, role);
+        return ResponseEntity.ok(ApiResponse.success("User role updated successfully", updated));
+    }
+
+    @PostMapping("/delivery-agent")
+    public ResponseEntity<ApiResponse<UserDTO>> createDeliveryAgent(
+            @jakarta.validation.Valid @RequestBody com.smartshop.backend.dto.RegisterRequest request
+    ) {
+        UserDTO agent = userService.createDeliveryAgent(request);
+        return ResponseEntity.ok(ApiResponse.success("Delivery agent account created successfully", agent));
+    }
 }
