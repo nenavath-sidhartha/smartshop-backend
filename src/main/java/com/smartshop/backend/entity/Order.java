@@ -55,6 +55,16 @@ public class Order {
     @Column(length = 1000, nullable = false)
     private String shippingAddress;
 
+    // --- Delivery tracking coordinates & info ---
+    private Double destinationLatitude;
+
+    private Double destinationLongitude;
+
+    private LocalDateTime estimatedDeliveryTime;
+
+    @Column(length = 500)
+    private String deliveryInstructions;
+
     // --- Cancellation fields ---
     @Column(length = 500)
     private String cancellationReason;

@@ -30,6 +30,10 @@ public class OrderDTO {
     private PaymentStatus paymentStatus;
     private OrderStatus orderStatus;
     private String shippingAddress;
+    private Double destinationLatitude;
+    private Double destinationLongitude;
+    private LocalDateTime estimatedDeliveryTime;
+    private String deliveryInstructions;
 
     // Cancellation info
     private String cancellationReason;

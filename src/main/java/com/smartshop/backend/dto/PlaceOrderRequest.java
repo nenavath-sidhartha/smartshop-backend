@@ -22,4 +22,8 @@ public class PlaceOrderRequest {
 
     @NotNull(message = "Payment method is required")
     private PaymentMethod paymentMethod;
+
+    private Double destinationLatitude;
+    private Double destinationLongitude;
+    private String deliveryInstructions;
 }

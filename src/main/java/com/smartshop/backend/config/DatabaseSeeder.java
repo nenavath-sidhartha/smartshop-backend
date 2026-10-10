@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -20,11 +21,16 @@ public class DatabaseSeeder implements CommandLineRunner {
     private final ProductRepository productRepository;
     private final CartRepository cartRepository;
     private final PasswordEncoder passwordEncoder;
+    private final OrderRepository orderRepository;
+    private final OrderItemRepository orderItemRepository;
+    private final DeliveryAssignmentRepository assignmentRepository;
+    private final DeliveryLocationRepository locationRepository;
 
     @Override
     public void run(String... args) {
         seedUsers();
         seedCategoriesAndProducts();
+        seedDeliveryAgentAndOrders();
     }
 
     private void seedUsers() {
@@ -349,5 +355,136 @@ public class DatabaseSeeder implements CommandLineRunner {
         );
 
         productRepository.saveAll(seedProducts);
+    }
+
+    private void seedDeliveryAgentAndOrders() {
+        // Seed Delivery Agent
+        User agent;
+        if (!userRepository.existsByEmail("agent@smartshop.com")) {
+            agent = User.builder()
+                    .fullName("Vikram Singh (Express Delivery)")
+                    .email("agent@smartshop.com")
+                    .password(passwordEncoder.encode("agent123"))
+                    .phoneNumber("+91 98765 00001")
+                    .role(Role.ROLE_DELIVERY_AGENT)
+                    .status("ACTIVE")
+                    .build();
+            agent = userRepository.save(agent);
+            cartRepository.save(Cart.builder().user(agent).subtotal(0.0).deliveryFee(0.0).total(0.0).build());
+        } else {
+            agent = userRepository.findByEmail("agent@smartshop.com").orElse(null);
+        }
+
+        // Seed Sample Orders for Rahul Sharma if no orders exist yet
+        Optional<User> customerOpt = userRepository.findByEmail("customer@smartshop.com");
+        if (customerOpt.isPresent()) {
+            User customer = customerOpt.get();
+            if (orderRepository.findByUserIdOrderByCreatedAtDesc(customer.getId()).isEmpty()) {
+                List<Product> products = productRepository.findAll();
+                if (products.size() >= 3) {
+                    Product p1 = products.get(0);
+                    Product p2 = products.get(1);
+                    Product p3 = products.get(2);
+
+                    // 1. Delivered Order (for testing Reorder & Buy Again)
+                    Order deliveredOrder = Order.builder()
+                            .orderNumber("ORD-20261005-7821")
+                            .user(customer)
+                            .paymentMethod(PaymentMethod.UPI)
+                            .paymentStatus(PaymentStatus.PAID)
+                            .orderStatus(OrderStatus.DELIVERED)
+                            .shippingAddress("Flat 402, Green Valley Apartments, Madhapur, Hyderabad, Telangana - 500081")
+                            .destinationLatitude(17.4485)
+                            .destinationLongitude(78.3908)
+                            .deliveryFee(0.0)
+                            .totalAmount(p1.getPrice() + (p2.getPrice() * 2))
+                            .build();
+
+                    Order savedDeliveredOrder = orderRepository.save(deliveredOrder);
+
+                    OrderItem item1 = OrderItem.builder()
+                            .order(savedDeliveredOrder)
+                            .product(p1)
+                            .productName(p1.getName())
+                            .productImage(p1.getImage())
+                            .price(p1.getPrice())
+                            .quantity(1)
+                            .build();
+
+                    OrderItem item2 = OrderItem.builder()
+                            .order(savedDeliveredOrder)
+                            .product(p2)
+                            .productName(p2.getName())
+                            .productImage(p2.getImage())
+                            .price(p2.getPrice())
+                            .quantity(2)
+                            .build();
+
+                    orderItemRepository.saveAll(List.of(item1, item2));
+
+                    // 2. Out for Delivery Order (for testing Live Google Maps Delivery Tracking!)
+                    Order activeOrder = Order.builder()
+                            .orderNumber("ORD-20261010-4492")
+                            .user(customer)
+                            .paymentMethod(PaymentMethod.CARD)
+                            .paymentStatus(PaymentStatus.PAID)
+                            .orderStatus(OrderStatus.OUT_FOR_DELIVERY)
+                            .shippingAddress("Plot 12, Silicon Ridge, HITEC City, Hyderabad, Telangana - 500081")
+                            .destinationLatitude(17.4435)
+                            .destinationLongitude(78.3772)
+                            .estimatedDeliveryTime(java.time.LocalDateTime.now().plusHours(2))
+                            .deliveryInstructions("Call +91 9123456789 on arrival. Gate passcode: 4402")
+                            .deliveryFee(0.0)
+                            .totalAmount(p3.getPrice())
+                            .build();
+
+                    Order savedActiveOrder = orderRepository.save(activeOrder);
+
+                    OrderItem item3 = OrderItem.builder()
+                            .order(savedActiveOrder)
+                            .product(p3)
+                            .productName(p3.getName())
+                            .productImage(p3.getImage())
+                            .price(p3.getPrice())
+                            .quantity(1)
+                            .build();
+
+                    orderItemRepository.save(item3);
+
+                    // Assign active order to Vikram Singh
+                    if (agent != null) {
+                        DeliveryAssignment assignment = DeliveryAssignment.builder()
+                                .order(savedActiveOrder)
+                                .deliveryAgent(agent)
+                                .deliveryStatus(DeliveryStatus.OUT_FOR_DELIVERY)
+                                .assignedAt(java.time.LocalDateTime.now().minusHours(2))
+                                .startedAt(java.time.LocalDateTime.now().minusMinutes(25))
+                                .notes("Priority express delivery. Customer requested call before gate.")
+                                .build();
+
+                        DeliveryAssignment savedAssignment = assignmentRepository.save(assignment);
+
+                        // Initial location in transit (approaching HITEC City)
+                        DeliveryLocation loc1 = DeliveryLocation.builder()
+                                .deliveryAssignment(savedAssignment)
+                                .latitude(17.4260)
+                                .longitude(78.4120)
+                                .accuracy(12.0)
+                                .recordedAt(java.time.LocalDateTime.now().minusMinutes(10))
+                                .build();
+
+                        DeliveryLocation loc2 = DeliveryLocation.builder()
+                                .deliveryAssignment(savedAssignment)
+                                .latitude(17.4345)
+                                .longitude(78.3960)
+                                .accuracy(8.0)
+                                .recordedAt(java.time.LocalDateTime.now().minusMinutes(1))
+                                .build();
+
+                        locationRepository.saveAll(List.of(loc1, loc2));
+                    }
+                }
+            }
+        }
     }
 }
